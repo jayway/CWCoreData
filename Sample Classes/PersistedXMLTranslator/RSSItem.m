@@ -61,7 +61,7 @@
 	[formatter release];
     NSArray* items = [CWXMLTranslator translateContentsOfURL:url
                                         withTranslationNamed:@"RSSFeed"
-                                                    delegate:self
+                                                    delegate:(id)self
                                                        error:&error];
     if (items) {
         CWLogDebug(@"Fetched %d new RSS items", [items count]);
@@ -95,7 +95,7 @@
 
 #pragma mark --- CWXMLTranslatorDelegate conformance
 
-+(id)xmlTranslator:(CWXMLTranslator *)translator didTranslateObject:(id)anObject fromXMLName:(NSString *)name toKey:(NSString *)key ontoObject:(id)parentObject;
++(id)translator:(CWTranslator*)translator didTranslateObject:(id)anObject fromSourceName:(NSString*)name toKeyPath:(NSString*)key ontoObject:(id)parentObject context:(NSString*)context;
 {
 	if ([name isEqualToString:@"item"]) {
         NSManagedObjectContext* context = [NSManagedObjectContext threadLocalContext];
