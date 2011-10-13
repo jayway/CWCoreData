@@ -337,7 +337,7 @@
 		0867D690FE84028FC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0410;
+				LastUpgradeCheck = 0420;
 			};
 			buildConfigurationList = 1DEB922208733DC00010E9CD /* Build configuration list for PBXProject "CWCoreData" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -530,7 +530,7 @@
 					"-ObjC",
 				);
 				SDKROOT = iphoneos;
-				USER_HEADER_SEARCH_PATHS = "../**";
+				USER_HEADER_SEARCH_PATHS = "../CWFoundation/**";
 			};
 			name = Debug;
 		};
@@ -546,7 +546,7 @@
 					"-ObjC",
 				);
 				SDKROOT = iphoneos;
-				USER_HEADER_SEARCH_PATHS = "../**";
+				USER_HEADER_SEARCH_PATHS = "../CWFoundation/**";
 			};
 			name = Release;
 		};
