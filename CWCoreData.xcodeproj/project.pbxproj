@@ -530,6 +530,7 @@
 					"-ObjC",
 				);
 				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
 				USER_HEADER_SEARCH_PATHS = "../CWFoundation/**";
 			};
 			name = Debug;
@@ -546,6 +547,7 @@
 					"-ObjC",
 				);
 				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
 				USER_HEADER_SEARCH_PATHS = "../CWFoundation/**";
 			};
 			name = Release;
