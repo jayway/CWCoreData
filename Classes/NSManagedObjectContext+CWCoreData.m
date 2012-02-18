@@ -85,7 +85,7 @@ static NSMutableDictionary* _managedObjectContexts = nil;
                                   name:NSManagedObjectContextDidSaveNotification 
                                 object:context];
             [context release];
-            NSLog(@"Did create thread local NSManagedObjectContext");
+            //NSLog(@"Did create thread local NSManagedObjectContext");
         }
     }
     return context;

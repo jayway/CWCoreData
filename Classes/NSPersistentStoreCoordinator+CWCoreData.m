@@ -41,7 +41,7 @@ static NSPersistentStoreCoordinator* _persistentStoreCoordinator = nil;
         NSString* documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
         documentsPath = [documentsPath stringByAppendingPathComponent:@"Data.sqlite"];
         NSURL* storeURL = [NSURL fileURLWithPath:documentsPath];
-        NSLog(@"Will set default persistent store of type %@ at URL %@.", NSSQLiteStoreType, [storeURL absoluteString]);
+        //NSLog(@"Will set default persistent store of type %@ at URL %@.", NSSQLiteStoreType, [storeURL absoluteString]);
         [self setDefaultStoreURL:storeURL type:NSSQLiteStoreType];
     }
     return _persistentStoreCoordinator;
@@ -71,7 +71,7 @@ static NSPersistentStoreCoordinator* _persistentStoreCoordinator = nil;
     if (_persistentStoreCoordinator == nil) {
     	[NSException raise:NSInternalInconsistencyException format:@"Could not setup default persistence store of type %@ at URL %@ (Error: %@)", storeType, [storeURL absoluteURL], [error localizedDescription]];
     } else {
-        NSLog(@"Did create default NSPersistentStoreCoordinator of type %@ at %@", storeType, [[storeURL absoluteString] stringByAbbreviatingWithTildeInPath]);
+        //NSLog(@"Did create default NSPersistentStoreCoordinator of type %@ at %@", storeType, [[storeURL absoluteString] stringByAbbreviatingWithTildeInPath]);
     }
 }
 
