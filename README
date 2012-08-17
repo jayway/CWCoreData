@@ -12,11 +12,10 @@ This project is created with the intent to be used as a sub-project for other
 Xcode project. Additionaly this project can be used as a git sub module.
 
 This project has a dependency to CWFoundation. This dependency in added as
-a git sub module in Components/CWFoundation. You may need to update this
-dependency using:
-    git submodule update --init --recursive
+a relative sub-project at ../CWFoundation. You can clone this repo yourself
+or it will be cloned for you when building through the CWCoreDataEnsureDeps target.
 
-CWCoreData is weakly linked agains CWFoundation in order to avoid duplicate 
+CWCoreData is weakly linked agains CWFoundation in order to avoid duplicate
 symbols if CWCoreData is used with other project that also have dependencies to 
 CWFoundation. The result of this is that any project that links against 
 CWCoreData must also link against CWFoundation explicitly.
@@ -26,7 +25,7 @@ You add this project as a sub project in Xcode like this:
 2. Make sure this project product (libCWCoreData.a) is a target member.
 3. Make sure the subprojects product (libCWFoundation.a) is a target member.
 4. Add the CWCoreData target as direct dependency.
-5. Add <Path To CWCoreData>/** to user header search paths.
+5. Add ../** to user header search paths.
 6. Add -all_load to other linker flags.
 
 
