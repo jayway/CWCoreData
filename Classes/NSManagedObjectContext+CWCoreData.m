@@ -134,11 +134,13 @@ static NSMutableDictionary* _managedObjectContexts = nil;
 
 +(void)mergeChangesFromContextDidSaveNotification:(NSNotification*)notification;
 {
+/*
     NSDictionary* userInfo = [notification userInfo];
-/*    NSInteger insertCount = [[userInfo objectForKey:NSInsertedObjectsKey] count];*/
-    //NSInteger updateCount = [[userInfo objectForKey:NSUpdatedObjectsKey] count];
-    /*NSInteger deleteCount = [[userInfo objectForKey:NSDeletedObjectsKey] count];*/
-    //NSLog(@"Will merge changes to local NSManagedObjectContext (%d inserts, %d updates, %d deletes). ", insertCount, updateCount, deleteCount);
+    NSInteger insertCount = [[userInfo objectForKey:NSInsertedObjectsKey] count];
+    NSInteger updateCount = [[userInfo objectForKey:NSUpdatedObjectsKey] count];
+    NSInteger deleteCount = [[userInfo objectForKey:NSDeletedObjectsKey] count];
+    NSLog(@"Will merge changes to local NSManagedObjectContext (%d inserts, %d updates, %d deletes). ", insertCount, updateCount, deleteCount);
+ */
     NSManagedObjectContext* context = [self threadLocalContext];
 	[context mergeChangesFromContextDidSaveNotification:notification];
 }
