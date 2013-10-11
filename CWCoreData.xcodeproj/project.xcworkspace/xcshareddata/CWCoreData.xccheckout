@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IDESourceControlProjectFavoriteDictionaryKey</key>
+	<false/>
+	<key>IDESourceControlProjectIdentifier</key>
+	<string>45FB20E7-2B9F-41C3-AD09-31FC15C515D1</string>
+	<key>IDESourceControlProjectName</key>
+	<string>CWCoreData</string>
+	<key>IDESourceControlProjectOriginsDictionary</key>
+	<dict>
+		<key>02B62006-45DB-4472-B7F8-AE630A7A8F6A</key>
+		<string>ssh://github.com/jayway/CWCoreData.git</string>
+		<key>5B071829-D113-4F9B-929D-2220B5E3798F</key>
+		<string>ssh://github.com/jayway/CWFoundation.git</string>
+	</dict>
+	<key>IDESourceControlProjectPath</key>
+	<string>CWCoreData.xcodeproj/project.xcworkspace</string>
+	<key>IDESourceControlProjectRelativeInstallPathDictionary</key>
+	<dict>
+		<key>02B62006-45DB-4472-B7F8-AE630A7A8F6A</key>
+		<string>../..</string>
+		<key>5B071829-D113-4F9B-929D-2220B5E3798F</key>
+		<string>../../../CWFoundation</string>
+	</dict>
+	<key>IDESourceControlProjectURL</key>
+	<string>ssh://github.com/jayway/CWCoreData.git</string>
+	<key>IDESourceControlProjectVersion</key>
+	<integer>110</integer>
+	<key>IDESourceControlProjectWCCIdentifier</key>
+	<string>02B62006-45DB-4472-B7F8-AE630A7A8F6A</string>
+	<key>IDESourceControlProjectWCConfigurations</key>
+	<array>
+		<dict>
+			<key>IDESourceControlRepositoryExtensionIdentifierKey</key>
+			<string>public.vcs.git</string>
+			<key>IDESourceControlWCCIdentifierKey</key>
+			<string>02B62006-45DB-4472-B7F8-AE630A7A8F6A</string>
+			<key>IDESourceControlWCCName</key>
+			<string>CWCoreData</string>
+		</dict>
+		<dict>
+			<key>IDESourceControlRepositoryExtensionIdentifierKey</key>
+			<string>public.vcs.git</string>
+			<key>IDESourceControlWCCIdentifierKey</key>
+			<string>5B071829-D113-4F9B-929D-2220B5E3798F</string>
+			<key>IDESourceControlWCCName</key>
+			<string>CWFoundation</string>
+		</dict>
+	</array>
+</dict>
+</plist>
