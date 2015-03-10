@@ -57,9 +57,8 @@ static NSPersistentStoreCoordinator* _persistentStoreCoordinator = nil;
 	[_persistentStoreCoordinator autorelease];
     NSError* error = nil;
     _persistentStoreCoordinator = [[NSPersistentStoreCoordinator alloc] initWithManagedObjectModel:[NSManagedObjectModel defaultModel]];
-    NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:
-                             [NSNumber numberWithBool:YES], NSMigratePersistentStoresAutomaticallyOption,
-                             [NSNumber numberWithBool:YES], NSInferMappingModelAutomaticallyOption, nil];
+    NSDictionary *options = @{NSMigratePersistentStoresAutomaticallyOption: @YES,
+                             NSInferMappingModelAutomaticallyOption: @YES};
     if (![_persistentStoreCoordinator addPersistentStoreWithType:storeType 
                                                    configuration:nil 
                                                              URL:storeURL 

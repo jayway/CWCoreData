@@ -37,7 +37,7 @@ static NSManagedObjectModel* _managedObjectModel = nil;
 +(NSManagedObjectModel*)defaultModel;
 {
     if (_managedObjectModel == nil) {
-        NSArray* bundles = [NSArray arrayWithObject:[NSBundle mainBundle]];
+        NSArray* bundles = @[[NSBundle mainBundle]];
 	    _managedObjectModel = [[NSManagedObjectModel mergedModelFromBundles:bundles] retain];
         //NSLog(@"Did create default NSManagedObjectModel.");
 	}

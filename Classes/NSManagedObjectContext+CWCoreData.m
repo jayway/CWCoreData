@@ -55,7 +55,7 @@ static NSMutableDictionary* _managedObjectContexts = nil;
 
 + (BOOL)hasThreadLocalContext;
 {
-	return [[NSManagedObjectContext managedObjectContexts] objectForKey:[self threadKey]] != nil;    
+	return [NSManagedObjectContext managedObjectContexts][[self threadKey]] != nil;    
 }
 
 /**
@@ -67,7 +67,7 @@ static NSMutableDictionary* _managedObjectContexts = nil;
     NSManagedObjectContext* context = nil;
     @synchronized([self class]) {
         NSValue* threadKey = [self threadKey];
-        context = [[NSManagedObjectContext managedObjectContexts] objectForKey:threadKey];
+        context = [NSManagedObjectContext managedObjectContexts][threadKey];
         
         if (context == nil) {
             NSNotificationCenter* defaultCenter = [NSNotificationCenter defaultCenter];
@@ -85,7 +85,7 @@ static NSMutableDictionary* _managedObjectContexts = nil;
                               selector:@selector(threadWillExit:) 
                                   name:NSThreadWillExitNotification 
                                 object:[NSThread currentThread]];
-            [[NSManagedObjectContext managedObjectContexts] setObject:context forKey:threadKey];
+            [NSManagedObjectContext managedObjectContexts][threadKey] = context;
             [defaultCenter addObserver:self 
                               selector:@selector(managedObjectContextDidSave:) 
                                   name:NSManagedObjectContextDidSaveNotification 

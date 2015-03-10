@@ -43,12 +43,12 @@
 /*!
  * @abstract Gett the thread local self for this managed object
  */
--(id)threadLocalSelf;
+@property (NS_NONATOMIC_IOSONLY, readonly, strong) id threadLocalSelf;
 
 /*!
  * @abstract Query if the managed object has a temporary object ID.
  */
-- (BOOL)hasTemporaryObjectID;
+@property (NS_NONATOMIC_IOSONLY, readonly) BOOL hasTemporaryObjectID;
 
 /*!
  * @abstract Rollback all changes since last fetch or save. Will turn object into a fault.

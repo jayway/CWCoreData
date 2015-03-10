@@ -31,13 +31,13 @@
 #import <Foundation/Foundation.h>
 #import <CoreData/CoreData.h>
 
-typedef enum {
+typedef NS_ENUM(NSInteger, NSManagedObjectContextCWSaveFailureOption) {
     NSManagedObjectContextCWSaveFailureOptionNone,		// Do nothing on save error
     NSManagedObjectContextCWSaveFailureOptionThreadDefault,   // Rollback on main thread, reset on background threads.
     NSManagedObjectContextCWSaveFailureOptionRollback,  // Rollback context and objects on error
     NSManagedObjectContextCWSaveFailureOptionReset,     // Reset context, invalidating objects on error
     NSManagedObjectContextCWSaveFailureOptionRemove     // Remove context, invalidating objects on error
-} NSManagedObjectContextCWSaveFailureOption;
+} ;
 
 /*!
  * @abstract Convinience category for accessing a default thread local NSManagedObjectContext.
@@ -65,7 +65,7 @@ typedef enum {
 +(void)removeThreadLocalContext;
 
 
--(BOOL)isThreadLocalContext;
+@property (NS_NONATOMIC_IOSONLY, getter=isThreadLocalContext, readonly) BOOL threadLocalContext;
 
 /*!
  * @abstract Call save:, 
