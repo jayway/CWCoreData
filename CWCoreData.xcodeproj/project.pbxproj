@@ -496,6 +496,7 @@
 					"\"$(SRCROOT)/../CWFoundation/build/Release-iphoneos\"",
 				);
 				PRODUCT_NAME = CWCoreData;
+				VALID_ARCHS = "arm64 armv7";
 			};
 			name = Debug;
 		};
@@ -512,6 +513,7 @@
 					"\"$(SRCROOT)/../CWFoundation/build/Release-iphoneos\"",
 				);
 				PRODUCT_NAME = CWCoreData;
+				VALID_ARCHS = "arm64 armv7";
 			};
 			name = Release;
 		};
