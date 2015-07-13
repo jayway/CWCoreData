@@ -49,6 +49,8 @@ typedef enum {
  */
 @interface NSManagedObjectContext (CWCoreData)
 
++ (void) CW_initializeDefaultContextWithCoordinator:(NSPersistentStoreCoordinator *)coordinator;
+
 /*!
  * @abstract Query if the current thread has thread local context.
  */
@@ -58,6 +60,10 @@ typedef enum {
  * @abstract Get the current thread's thread local context. Lazily create the context if it do not exist.
  */
 +(NSManagedObjectContext*)threadLocalContext;
+
++ (NSManagedObjectContext *) CW_defaultContext;
+
++ (NSManagedObjectContext *) CW_rootSavingContext;
 
 /*!
  * @abstract Explicitly remove this thread's local context.

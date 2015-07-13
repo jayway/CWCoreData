@@ -31,31 +31,40 @@
 #import "NSManagedObjectContext+CWCoreData.h"
 #import "NSPersistentStoreCoordinator+CWCoreData.h"
 #import "NSFetchRequest+CWCoreData.h"
+#import "CWLog.h"
+
+static NSString * const CWContextWorkingName = @"CWContextWorkingName";
 
 
 @implementation NSManagedObjectContext (CWCoreData)
 
+static NSManagedObjectContext *CWRootSavingContext;
+static NSManagedObjectContext *CWDefaultContext;
+
 static NSMutableDictionary* _managedObjectContexts = nil;
 
-+ (NSMutableDictionary*) managedObjectContexts
+#pragma mark -
+#pragma mark Old dangerous threading implementation
+
++ (NSMutableDictionary *)managedObjectContexts
 {
     static dispatch_once_t onceToken;
     
     dispatch_once(&onceToken, ^{
-        _managedObjectContexts = [[NSMutableDictionary alloc] initWithCapacity:4];
+        _managedObjectContexts = [NSMutableDictionary new];
     });
-
+    
     return _managedObjectContexts;
 }
 
-+ (NSValue*)threadKey;
++ (NSValue *)threadKey;
 {
-	return [NSValue valueWithPointer:[NSThread currentThread]];
+    return [NSValue valueWithPointer:[NSThread currentThread]];
 }
 
 + (BOOL)hasThreadLocalContext;
 {
-	return [[NSManagedObjectContext managedObjectContexts] objectForKey:[self threadKey]] != nil;    
+    return [[NSManagedObjectContext managedObjectContexts] objectForKey:[self threadKey]] != nil;
 }
 
 /**
@@ -66,52 +75,38 @@ static NSMutableDictionary* _managedObjectContexts = nil;
 {
     NSManagedObjectContext* context = nil;
     @synchronized([self class]) {
+        if ([NSThread isMainThread]) {
+            return [self CW_defaultContext];
+        }
+        
+        // Threaded context
         NSValue* threadKey = [self threadKey];
         context = [[NSManagedObjectContext managedObjectContexts] objectForKey:threadKey];
-        
-        if (context == nil) {
-            NSNotificationCenter* defaultCenter = [NSNotificationCenter defaultCenter];
-            NSPersistentStoreCoordinator *coordinator = [NSPersistentStoreCoordinator defaultCoordinator];
-            context = [[NSManagedObjectContext alloc] init];
-            [context setPersistentStoreCoordinator: coordinator];
-			if ([[NSThread currentThread] isMainThread]) {
-				[context setMergePolicy:NSErrorMergePolicy];
-			} else {
-				[context setMergePolicy:NSMergeByPropertyObjectTrumpMergePolicy];
-			}
-
-
-            [defaultCenter addObserver:self
-                              selector:@selector(threadWillExit:) 
-                                  name:NSThreadWillExitNotification 
-                                object:[NSThread currentThread]];
+        if (!context) {
+            CWLogDebug(@"Creating threaded context with main queue context as parent");
+            context = [self CW_contextWithParent:CWDefaultContext];
+            [context setMergePolicy:NSMergeByPropertyObjectTrumpMergePolicy];
             [[NSManagedObjectContext managedObjectContexts] setObject:context forKey:threadKey];
-            [defaultCenter addObserver:self 
-                              selector:@selector(managedObjectContextDidSave:) 
-                                  name:NSManagedObjectContextDidSaveNotification 
-                                object:context];
-            [context release];
-            //NSLog(@"Did create thread local NSManagedObjectContext");
         }
     }
     return context;
 }
 
-+(void)removeThreadLocalContext;
++ (void)removeThreadLocalContext;
 {
-	if ([self hasThreadLocalContext]) {
+    if ([self hasThreadLocalContext]) {
         NSNotificationCenter* notificationCenter = [NSNotificationCenter defaultCenter];
-        [notificationCenter removeObserver:self 
-                                      name:NSManagedObjectContextDidSaveNotification 
+        [notificationCenter removeObserver:self
+                                      name:NSManagedObjectContextDidSaveNotification
                                     object:[self threadLocalContext]];
         [[NSManagedObjectContext managedObjectContexts] removeObjectForKey:[self threadKey]];
-        [notificationCenter removeObserver:self 
-                                      name:NSThreadWillExitNotification 
+        [notificationCenter removeObserver:self
+                                      name:NSThreadWillExitNotification
                                     object:[NSThread currentThread]];
     }
 }
 
-+(void)threadWillExit:(NSNotification*)notification;
++ (void)threadWillExit:(NSNotification*)notification;
 {
     @synchronized([self class]) {
         //NSLog(@"Will remove local NSManagedObjectContext on thread exit");
@@ -119,35 +114,65 @@ static NSMutableDictionary* _managedObjectContexts = nil;
     }
 }
 
-+(void)managedObjectContextDidSave:(NSNotification*)notification;
+- (BOOL)isThreadLocalContext;
 {
-	for (NSValue* threadKey in [[NSManagedObjectContext managedObjectContexts] allKeys]) {
-		NSThread* thread = (NSThread*)[threadKey pointerValue];
-        if (thread != [NSThread currentThread]) {
-			[self performSelector:@selector(mergeChangesFromContextDidSaveNotification:) 
-                         onThread:thread 
-                       withObject:notification 
-                    waitUntilDone:NO];
-        }
+    NSArray* keys = [[NSManagedObjectContext managedObjectContexts] allKeysForObject:self];
+    return [[NSManagedObjectContext threadKey] isEqual:[keys lastObject]];
+}
+
+#pragma mark -
+
++ (void) CW_initializeDefaultContextWithCoordinator:(NSPersistentStoreCoordinator *)coordinator;
+{
+    NSAssert(coordinator, @"Provided coordinator cannot be nil!");
+    if (!CWDefaultContext)
+    {
+        NSManagedObjectContext *rootContext = [self CW_contextWithStoreCoordinator:coordinator];
+        [self CW_setRootSavingContext:rootContext];
+        
+        NSManagedObjectContext *defaultContext = [self CW_newMainQueueContext];
+        [defaultContext setMergePolicy:NSErrorMergePolicy];
+        
+        [self CW_setDefaultContext:defaultContext];
+        
+        [defaultContext setParentContext:rootContext];
+        
+        [[NSNotificationCenter defaultCenter] addObserverForName:NSManagedObjectContextDidSaveNotification object:nil queue:nil usingBlock:^(NSNotification *note) {
+            NSManagedObjectContext *context = note.object;
+            NSManagedObjectContext *parentContext = context.parentContext;
+            if (parentContext == CWDefaultContext)
+            {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [parentContext mergeChangesFromContextDidSaveNotification:note];
+                });
+            }
+            else {
+                [parentContext mergeChangesFromContextDidSaveNotification:note];
+            }
+            
+            if (parentContext == CWRootSavingContext) {
+                [parentContext performBlock:^{
+                    NSError *error;
+                    if (![parentContext save:&error]) {
+                        CWLogError(@"Save error: %@", error);
+                    }
+                }];
+            }
+        }];
     }
 }
 
-+(void)mergeChangesFromContextDidSaveNotification:(NSNotification*)notification;
++ (NSManagedObjectContext *) CW_defaultContext
 {
- /*    NSDictionary* userInfo = [notification userInfo];
-   NSInteger insertCount = [[userInfo objectForKey:NSInsertedObjectsKey] count];*/
-    //NSInteger updateCount = [[userInfo objectForKey:NSUpdatedObjectsKey] count];
-    /*NSInteger deleteCount = [[userInfo objectForKey:NSDeletedObjectsKey] count];*/
-    //NSLog(@"Will merge changes to local NSManagedObjectContext (%d inserts, %d updates, %d deletes). ", insertCount, updateCount, deleteCount);
-    NSManagedObjectContext* context = [self threadLocalContext];
-	[context mergeChangesFromContextDidSaveNotification:notification];
+    @synchronized(self) {
+        NSAssert(CWDefaultContext != nil, @"Default context is nil! Did you forget to initialize the Core Data Stack?");
+        return CWDefaultContext;
+    }
 }
 
-
--(BOOL)isThreadLocalContext;
++ (NSManagedObjectContext *) CW_rootSavingContext;
 {
-	NSArray* keys = [[NSManagedObjectContext managedObjectContexts] allKeysForObject:self];
-    return [[NSManagedObjectContext threadKey] isEqual:[keys lastObject]];
+    return CWRootSavingContext;
 }
 
 -(BOOL)saveWithFailureOption:(NSManagedObjectContextCWSaveFailureOption)option error:(NSError**)error;
@@ -185,13 +210,203 @@ static NSMutableDictionary* _managedObjectContexts = nil;
     return YES;
 }
 
+#pragma maek - Setters
+
++ (void) CW_setDefaultContext:(NSManagedObjectContext *)moc
+{
+    if (CWDefaultContext)
+    {
+        [[NSNotificationCenter defaultCenter] removeObserver:CWDefaultContext];
+    }
+    
+    CWDefaultContext = moc;
+    [CWDefaultContext CW_setWorkingName:@"Default Context"];
+    
+//    if ((CWDefaultContext != nil) && ([self CW_rootSavingContext] != nil)) {
+//        [[NSNotificationCenter defaultCenter] addObserver:self
+//                                                 selector:@selector(CW_rootContextDidSave:)
+//                                                     name:NSManagedObjectContextDidSaveNotification
+//                                                   object:[self CW_rootSavingContext]];
+//    }
+    
+    [moc CW_obtainPermanentIDsBeforeSaving];
+
+    CWLogInfo(@"Set default context: %@", CWMainContext);
+}
+
++ (void)CW_setRootSavingContext:(NSManagedObjectContext *)context
+{
+    if (CWRootSavingContext)
+    {
+        [[NSNotificationCenter defaultCenter] removeObserver:CWRootSavingContext];
+    }
+    
+    CWRootSavingContext = context;
+    
+    [CWRootSavingContext performBlock:^{
+        [CWRootSavingContext CW_obtainPermanentIDsBeforeSaving];
+        [CWRootSavingContext setMergePolicy:NSMergeByPropertyObjectTrumpMergePolicy];
+        [CWRootSavingContext CW_setWorkingName:@"Root Saving Context"];
+    }];
+    
+    CWLogInfo(@"Set root saving context: %@", CWRootSavingContext);
+}
+
+#pragma mark - Context creation
+
++ (NSManagedObjectContext *)CW_newMainQueueContext
+{
+    NSManagedObjectContext *context = [[self alloc] initWithConcurrencyType:NSMainQueueConcurrencyType];
+    CWLogInfo(@"Created new main queue context: %@", context);
+    
+    return context;
+}
+
++ (NSManagedObjectContext *) CW_newPrivateQueueContext
+{
+    NSManagedObjectContext *context = [[self alloc] initWithConcurrencyType:NSPrivateQueueConcurrencyType];
+    CWLogInfo(@"Created new private queue context: %@", context);
+    return context;
+}
+
++ (NSManagedObjectContext *) CW_contextWithParent:(NSManagedObjectContext *)parentContext
+{
+    NSManagedObjectContext *context = [self CW_newPrivateQueueContext];
+    [context setParentContext:parentContext];
+    [context CW_obtainPermanentIDsBeforeSaving];
+    return context;
+}
+
++ (NSManagedObjectContext *) CW_contextWithStoreCoordinator:(NSPersistentStoreCoordinator *)coordinator
+{
+    NSManagedObjectContext *context = [self CW_newPrivateQueueContext];
+    [context performBlockAndWait:^{
+        [context setPersistentStoreCoordinator:coordinator];
+        CWLogDebug(@"Created new context %@ with store coordinator: %@", [context CW_workingName], coordinator);
+    }];
+    
+    return context;
+}
+
++ (NSManagedObjectContext *)mainThreadContext
+{
+    static NSManagedObjectContext *context = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        context = [[NSManagedObjectContext alloc] initWithConcurrencyType:NSMainQueueConcurrencyType];
+        [context setParentContext:[NSManagedObjectContext CW_rootSavingContext]];
+        [context setMergePolicy:NSErrorMergePolicy];
+        [context CW_obtainPermanentIDsBeforeSaving];
+    });
+    
+    return context;
+}
+
+#pragma mark - Private methods
+
+- (void) CW_obtainPermanentIDsBeforeSaving
+{
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(CW_contextWillSave:)
+                                                 name:NSManagedObjectContextWillSaveNotification
+                                               object:self];
+}
+
+#pragma mark - Notification Handlers
+
+- (void) CW_contextWillSave:(NSNotification *)notification
+{
+    NSManagedObjectContext *context = [notification object];
+    NSSet *insertedObjects = [context insertedObjects];
+    
+    if ([insertedObjects count])
+    {
+        CWLogDebug(@"Context '%@' is about to save: obtaining permanent IDs for %lu new inserted object(s).", [context CW_workingName], (unsigned long)[insertedObjects count]);
+        NSError *error = nil;
+        BOOL success = [context obtainPermanentIDsForObjects:[insertedObjects allObjects] error:&error];
+        if (!success)
+        {
+            CWLogError(@"Error: %@", error);
+        }
+    }
+}
+
++ (void)CW_rootContextDidSave:(NSNotification *)notification
+{
+    if ([notification object] != [self CW_rootSavingContext])
+    {
+        return;
+    }
+    
+    if (![NSThread isMainThread])
+    {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self CW_rootContextDidSave:notification];
+        });
+        
+        return;
+    }
+    
+    for (NSManagedObject *object in [[notification userInfo] objectForKey:NSUpdatedObjectsKey])
+    {
+        [[[self CW_defaultContext] objectWithID:[object objectID]] willAccessValueForKey:nil];
+    }
+    
+    [[self CW_defaultContext] mergeChangesFromContextDidSaveNotification:notification];
+}
+
+#pragma mark - Debugging
+
+- (void) CW_setWorkingName:(NSString *)workingName
+{
+    [[self userInfo] setObject:workingName forKey:CWContextWorkingName];
+}
+
+- (NSString *) CW_workingName
+{
+    NSString *workingName = [[self userInfo] objectForKey:CWContextWorkingName];
+    
+    if ([workingName length] == 0)
+    {
+        workingName = @"Untitled Context";
+    }
+    
+    return workingName;
+}
+
+- (NSString *) CW_description
+{
+    NSString *onMainThread = [NSThread isMainThread] ? @"the main thread" : @"a background thread";
+    
+    __block NSString *workingName;
+    
+    [self performBlockAndWait:^{
+        workingName = [self CW_workingName];
+    }];
+    
+    return [NSString stringWithFormat:@"<%@ (%p): %@> on %@", NSStringFromClass([self class]), self, workingName, onMainThread];
+}
+
+- (NSString *) CW_parentChain
+{
+    NSMutableString *familyTree = [@"\n" mutableCopy];
+    NSManagedObjectContext *currentContext = self;
+    do
+    {
+        [familyTree appendFormat:@"- %@ (%p) %@\n", [currentContext CW_workingName], currentContext, (currentContext == self ? @"(*)" : @"")];
+    }
+    while ((currentContext = [currentContext parentContext]));
+    
+    return [NSString stringWithString:familyTree];
+}
+
 #pragma mark --- Managing objects
 
 -(id)insertNewUniqueObjectForEntityForName:(NSString*)entityName withPredicate:(NSPredicate*)predicate;
 {
     id object = [self fetchUniqueObjectForEntityName:entityName withPredicate:predicate];
     if (object == nil) {
-	    return [NSEntityDescription insertNewObjectForEntityForName:entityName
+        return [NSEntityDescription insertNewObjectForEntityForName:entityName
                                              inManagedObjectContext:self];
     }
     return object;
@@ -199,16 +414,16 @@ static NSMutableDictionary* _managedObjectContexts = nil;
 
 -(id)fetchUniqueObjectForEntityName:(NSString*)entityName withPredicate:(NSPredicate*)predicate;
 {
-	NSArray* objects = [self objectsForEntityName:entityName withPredicate:predicate sortDescriptors:nil];
-	if (objects) {
-		switch ([objects count]) {
+    NSArray* objects = [self objectsForEntityName:entityName withPredicate:predicate sortDescriptors:nil];
+    if (objects) {
+        switch ([objects count]) {
             case 0:
                 break;
             case 1:
                 return [objects lastObject];
             default:
                 [NSException raise:NSInternalInconsistencyException
-                            format:@"%@ (%@) should be unique, but exist as %d objects", entityName, predicate, [objects count]];
+                            format:@"%@ (%@) should be unique, but exist as %lu objects", entityName, predicate, (unsigned long)[objects count]];
         }
     }
     return nil;
@@ -216,12 +431,12 @@ static NSMutableDictionary* _managedObjectContexts = nil;
 
 -(BOOL)deleteUniqueObjectForEntityName:(NSString*)entityName predicate:(NSPredicate*)predicate;
 {
-	id object = [self fetchUniqueObjectForEntityName:entityName withPredicate:predicate];
-	if (object != nil) {
-		[self deleteObject:object];
-		return YES;
-	}
-	return NO;
+    id object = [self fetchUniqueObjectForEntityName:entityName withPredicate:predicate];
+    if (object != nil) {
+        [self deleteObject:object];
+        return YES;
+    }
+    return NO;
 }
 
 -(NSUInteger)objectCountForEntityName:(NSString*)entityName withPredicate:(NSPredicate*)predicate;
@@ -231,7 +446,7 @@ static NSMutableDictionary* _managedObjectContexts = nil;
                                                    sortDescriptors:nil];
     NSError* error = nil;
     NSUInteger count = [self countForFetchRequest:request error:&error];
-	if (error) {
+    if (error) {
         NSLog(@"%@", error);
     }
     return count;

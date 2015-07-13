@@ -33,18 +33,33 @@
 
 @implementation NSManagedObject (CWCoreData)
 
-
--(id)threadLocalSelf;
+- (id)threadLocalSelf;
 {
 	NSManagedObjectContext* context = [NSManagedObjectContext threadLocalContext];
-    if (context != [self managedObjectContext]) {
-    	if ([self hasTemporaryObjectID]) {
-        	[NSException raise:NSInternalInconsistencyException format:@"Can not get thread local self for an unsaved managed object from another thread."];
+    if (self.managedObjectContext == context) {
+        return self;
+    }
+    
+    NSError *error = nil;
+    
+    if ([[self objectID] isTemporaryID])
+    {
+        if (![self.managedObjectContext obtainPermanentIDsForObjects:@[self] error:&error])
+        {
+            [NSException raise:NSInternalInconsistencyException format:@"Can not get thread local self for an unsaved managed object from another thread."];
             return nil;
         }
-        return [context objectWithID:[self objectID]];
     }
-    return self;
+    
+    error = nil;
+    NSManagedObject *inContext = [context existingObjectWithID:[self objectID] error:&error];
+    if (error)
+    {
+        [NSException raise:NSInternalInconsistencyException format:@"Can not get thread local self for an unsaved managed object from another thread."];
+        return nil;
+    }
+    
+    return inContext;
 }
 
 - (BOOL)hasTemporaryObjectID;
